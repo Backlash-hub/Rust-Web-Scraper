@@ -9,7 +9,7 @@ use std::io::{BufWriter, Write};
 #[derive(Debug, Clone)]
 pub struct LinkResult {
     pub url: String,
-    pub status_code: Option<u16>, // None when the request itself failed (timeout, DNS, etc.)
+    pub status_code: Option<u16>,
     pub is_ok: bool,
     pub error_msg: Option<String>,
 }

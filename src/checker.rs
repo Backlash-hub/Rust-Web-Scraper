@@ -3,23 +3,6 @@ use tokio::sync::Semaphore;
 
 use crate::report::LinkResult;
 
-// ─────────────────────────────────────────────
-// check_link
-//
-// Fires a single HEAD request for one URL and
-// returns a LinkResult.
-//
-// Ownership notes:
-//   - `client` is Arc<reqwest::Client> — the Arc
-//     lets multiple async tasks share ONE client
-//     without cloning the underlying connection
-//     pool. Arc::clone() only clones the pointer,
-//     not the data.
-//   - `url` is a plain String (owned) because
-//     this fn is called from inside a spawned
-//     task. Spawned tasks require 'static lifetime
-//     so we can't use &str borrows here.
-// ─────────────────────────────────────────────
 pub async fn check_link(client: Arc<reqwest::Client>, url: String) -> LinkResult {
     // Try HEAD first — faster, no body download
     let result = client
@@ -69,41 +52,7 @@ pub async fn check_link(client: Arc<reqwest::Client>, url: String) -> LinkResult
     }
 }
 
-// ─────────────────────────────────────────────
-// check_all_links
-//
-// Takes all discovered links and checks them
-// concurrently using tokio tasks.
-//
-// Key concepts demonstrated here:
-//
-//  Arc<reqwest::Client>
-//    — shared ownership across tasks.
-//      Each task gets Arc::clone() before the
-//      move closure, so all tasks share ONE
-//      underlying HTTP connection pool.
-//
-//  Arc<Semaphore>
-//    — limits how many tasks run at once.
-//      Without this we'd fire hundreds of
-//      requests simultaneously and get rate
-//      limited or time out.
-//
-//  tokio::spawn
-//    — hands the async block to the tokio
-//      runtime as an independent task (green
-//      thread). Returns a JoinHandle<T>.
-//
-//  move closure
-//    — ownership of `client_clone`, `sem_clone`,
-//      and `link` is MOVED into the async block.
-//      Required because the task may outlive the
-//      current stack frame.
-//
-//  JoinHandle::await
-//    — waits for the spawned task to finish and
-//      gives us its return value.
-// ─────────────────────────────────────────────
+
 pub async fn check_all_links(
     links: Vec<String>,
     concurrency: usize,

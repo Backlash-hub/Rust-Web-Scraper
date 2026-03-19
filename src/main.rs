@@ -20,7 +20,6 @@ use report::{print_report, save_to_file};
     version = "0.1.0"
 )]
 struct Args {
-    /// The URL to crawl for links
     #[arg(short, long)]
     url: String,
 
@@ -33,18 +32,6 @@ struct Args {
     output: Option<String>,
 }
 
-// ─────────────────────────────────────────────
-// main
-//
-// #[tokio::main] is a macro that:
-//   1. Creates a tokio multi-threaded runtime
-//   2. Runs our async fn main() inside it
-//   3. Blocks the OS thread until it completes
-//
-// Without this macro, `async fn main()` would
-// not compile — Rust has no built-in async
-// runtime, tokio provides one.
-// ─────────────────────────────────────────────
 #[tokio::main]
 async fn main() {
     let args = Args::parse();
@@ -56,9 +43,7 @@ async fn main() {
     println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
 
     // ── Step 1: Build a shared HTTP client ───────────────────────
-    // We build it once here and pass a borrow to crawl().
-    // checker.rs will build its own Arc-wrapped client internally
-    // since it needs to distribute it across tasks.
+
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(10))
         .user_agent("link-checker/0.1")
@@ -66,8 +51,6 @@ async fn main() {
         .expect("Failed to build HTTP client");
 
     // ── Step 2: Crawl the starting page for links ─────────────────
-    // crawl() is async so we .await it. If it fails (bad URL,
-    // network down) we print the error and exit cleanly.
     let links = match crawl(&client, &args.url).await {
         Ok(links) => links,
         Err(e) => {
@@ -82,14 +65,10 @@ async fn main() {
     }
 
     // ── Step 3: Check all links concurrently ─────────────────────
-    // This is where tokio::spawn, Arc, and Semaphore all come into
-    // play. See checker.rs for the detailed ownership comments.
     println!("⏳ Checking {} links with concurrency {}...\n", links.len(), args.concurrency);
     let results = check_all_links(links, args.concurrency).await;
 
     // ── Step 4: Print the report ──────────────────────────────────
-    // We pass &results (borrow) — print_report only needs to read
-    // the data, and we still need results below for save_to_file.
     print_report(&results);
 
     // ── Step 5: Optionally save broken links to CSV ───────────────
